@@ -1,8 +1,12 @@
 from typing import Optional, List
 
+import base64
+import secrets
 import models
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from database import SessionLocal, engine
 import uvicorn
@@ -11,6 +15,31 @@ app = FastAPI()
 
 models.Base.metadata.create_all(bind=engine)
 
+origins = [
+    "http://localhost:3000",
+    "localhost:3000"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
+
+class User(BaseModel):
+    username: str
+    password: str
+
+
+fake_users_db = {
+    "appz": {
+        "username": "appz",
+        "password": "`123456&*"
+    }
+}
 
 # Dependency
 def get_db():
@@ -22,8 +51,23 @@ def get_db():
 
 
 @app.get("/")
-def read_root():
+async def read_root():
     return {"Hello": "World"}
+
+
+@app.post("/login")
+async def login(user: User, db: Session = Depends(get_db)):
+    user_object = fake_users_db.get(user.username)
+    response = {
+        "success": False, 
+        "message": "Incorrect username or password."
+    }
+    if user_object and user_object["password"] == user.password:
+        response["message"] = "Successfully logged in."
+        response["success"] = True
+    
+    return response
+
 
 """
 #This endpoint will add the sample data to the database if there is not the same data in the database.
@@ -63,20 +107,6 @@ def csv_to_database(db: Session = Depends(get_db)):
     response["message"] = "success"
     return response
 """
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Optional[str] = None, db: Session = Depends(get_db)):
-
-    app = models.App()
-
-    #app.name = q
-    #app.id = item_id
-    #db.add(app)
-    #app.query.filter_by(id=1).delete()
-    #app.query.filter_by(id=2).delete()
-    #db.commit()
-
-    return {"item_id": item_id, "q": q}
 
 if __name__ == '__main__':
     uvicorn.run(app, port=8080, host="0.0.0.0")
