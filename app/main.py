@@ -3,10 +3,12 @@ from typing import Optional, List
 import base64
 import secrets
 import models
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status, File, UploadFile
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from PIL import Image
 
 from database import SessionLocal, engine
 import uvicorn
@@ -67,6 +69,21 @@ async def login(user: User, db: Session = Depends(get_db)):
         response["success"] = True
     
     return response
+
+
+@app.post("/webpconverter")
+async def create_upload_file(img: UploadFile = File(...)):
+    print(img.file)
+    image = Image.open(img.file)
+    image = image.convert('RGB')
+    filenamme = ""
+    for char in img.filename:
+        if char == ".":
+            break
+        filenamme += char
+    image.save(filenamme + '.webp', 'webp')
+    image.close()
+    return FileResponse(filenamme + '.webp', media_type="image/webp")
 
 
 """

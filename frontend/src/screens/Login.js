@@ -37,7 +37,7 @@ export default function Login () {
         <form onSubmit={handleSubmit} style={{marginTop: '100px', marginBottom: '25px'}}>
           <input
             name="username"
-            placeholder="EnterUsername"
+            placeholder="Enter Username"
             value={userName}
             onChange={handleChange}
             style={{marginRight: '10px'}}
