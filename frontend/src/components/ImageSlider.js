@@ -3,8 +3,11 @@ import { FaArrowAltCircleRight, FaArrowAltCircleLeft } from 'react-icons/fa';
 import '../css/ImageSlider.css';
 
 export default function ImageSlider (slides) {
+  // state tanimlari
   const [current, setCurrent] = useState(0);
   const length = slides.slides.length;
+
+  // slider yon tuslari icin ayarlamalar.
   const nextSlide = () => {
     setCurrent(current === length - 1 ? 0 : current + 1);
   };
@@ -18,6 +21,7 @@ export default function ImageSlider (slides) {
   }
 
   return (
+    // yon tuslar tanimlari ve base64 den png formatina donusturulmus resim alani
     <section className='slider'>
       <FaArrowAltCircleLeft className='left-arrow' onClick={prevSlide} />
       <FaArrowAltCircleRight className='right-arrow' onClick={nextSlide} />
