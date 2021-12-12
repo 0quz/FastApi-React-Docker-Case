@@ -1,9 +1,11 @@
-from typing import Optional, List
+from typing import Optional
 
-import base64
-import secrets
+import io
+from base64 import encodebytes
+
+from sqlalchemy.sql.expression import false
 import models
-from fastapi import Depends, FastAPI, HTTPException, Request, status, File, UploadFile
+from fastapi import Depends, FastAPI, File, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -34,6 +36,11 @@ app.add_middleware(
 class User(BaseModel):
     username: str
     password: str
+
+
+class AppID(BaseModel):
+    appid: int
+    screenshot: Optional[bool] = False
 
 
 fake_users_db = {
@@ -72,18 +79,60 @@ async def login(user: User, db: Session = Depends(get_db)):
 
 
 @app.post("/webpconverter")
-async def create_upload_file(img: UploadFile = File(...)):
-    print(img.file)
+async def webp_converter(img: UploadFile = File(...)):
     image = Image.open(img.file)
-    image = image.convert('RGB')
-    filenamme = ""
+    file_name = ""
     for char in img.filename:
         if char == ".":
+            file_name += '.webp'
             break
-        filenamme += char
-    image.save(filenamme + '.webp', 'webp')
+        file_name += char
+    image.save(file_name, format='webp')
     image.close()
-    return FileResponse(filenamme + '.webp', media_type="image/webp")
+    return FileResponse(file_name, media_type="image/webp")
+
+
+def get_response_image(image_path):
+    pil_img = Image.open(image_path, mode='r') # reads the PIL image
+    byte_arr = io.BytesIO()
+    pil_img.save(byte_arr, format='PNG') # convert the PIL image to byte array
+    encoded_img = encodebytes(byte_arr.getvalue()).decode('ascii') # encode as base64
+    return encoded_img
+
+
+@app.get("/get_apps")
+async def get_apps(db: Session = Depends(get_db)):
+    apps = db.query(models.App).all()
+    response = {"sucess": False}
+    app_list = []
+    for app in apps:
+        app_list.append ({
+            "id": app.id,
+            "name": app.name,
+            "icon": get_response_image("icons/" + app.icon)
+         })
+
+    response['apps'] = app_list
+    response['sucess'] = True
+
+    return response
+
+
+@app.post("/get_screenshots_by_app_id")
+async def get_screenshots_by_app_id(app: AppID, db: Session = Depends(get_db)):
+    screenshots = db.query(models.Screenshot).filter(models.Screenshot.app_id == app.appid)
+    response = {"sucess": False}
+    screenshot_list = []
+    for screenshot in screenshots:
+        screenshot_list.append ({
+            "id": screenshot.id,
+            "screenshot": get_response_image("ss/" + screenshot.file_name)
+        })
+
+    response['screenshots'] = screenshot_list
+    response['sucess'] = True
+
+    return response
 
 
 """
