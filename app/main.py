@@ -14,16 +14,19 @@ from PIL import Image
 
 from database import SessionLocal, engine
 import uvicorn
-
+# framework baglantisi
 app = FastAPI()
 
+# db baglantisi
 models.Base.metadata.create_all(bind=engine)
 
+# istek kabul edilen domainler
 origins = [
     "http://localhost:3000",
     "localhost:3000"
 ]
 
+# frontend istekleri karsilamak icin CORS settings
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -33,6 +36,7 @@ app.add_middleware(
 )
 
 
+#Endpointler icin gerekli parametreler.
 class User(BaseModel):
     username: str
     password: str
@@ -43,6 +47,7 @@ class AppID(BaseModel):
     screenshot: Optional[bool] = False
 
 
+# fake db login kontrolu icin
 fake_users_db = {
     "appz": {
         "username": "appz",
@@ -64,13 +69,16 @@ async def read_root():
     return {"Hello": "World"}
 
 
+
 @app.post("/login")
 async def login(user: User, db: Session = Depends(get_db)):
+    #istek ile gelen username ile fake dbden veri alinmasi
     user_object = fake_users_db.get(user.username)
     response = {
         "success": False, 
         "message": "Incorrect username or password."
     }
+    #eger gelen user db de varsa ve gelen password ile db deki password eslesiyorsa login islemi basarili olarak donulur.
     if user_object and user_object["password"] == user.password:
         response["message"] = "Successfully logged in."
         response["success"] = True
@@ -78,18 +86,19 @@ async def login(user: User, db: Session = Depends(get_db)):
     return response
 
 
-@app.post("/webpconverter")
+@app.post("/webp_converter")
 async def webp_converter(img: UploadFile = File(...)):
-    image = Image.open(img.file)
+    image = Image.open(img.file) # istek ile gelen image dosyasi acilir
     file_name = ""
     for char in img.filename:
         if char == ".":
-            file_name += '.webp'
+            file_name += '.webp' # ismi .webp olacak sekilde duzeltilir.
             break
         file_name += char
-    image.save(file_name, format='webp')
+    image.save(file_name, format='webp') # pil araciligi ile webp donusumu yapilir.
     image.close()
-    return FileResponse(file_name, media_type="image/webp")
+
+    return FileResponse(file_name, media_type="image/webp") # donusturulmus resim frontende gonderilir.
 
 
 def get_response_image(image_path):
@@ -102,38 +111,39 @@ def get_response_image(image_path):
 
 @app.get("/get_apps")
 async def get_apps(db: Session = Depends(get_db)):
-    apps = db.query(models.App).all()
+    apps = db.query(models.App).all() # apps tablindaki butun veriler alinir.
     response = {"sucess": False}
     app_list = []
+    # istenilen veriler liste sekline getirilir.
     for app in apps:
         app_list.append ({
             "id": app.id,
             "name": app.name,
-            "icon": get_response_image("icons/" + app.icon)
+            "icon": get_response_image("./icons/" + app.icon) # resim dosyalari base64 donusumunden sonra frontend'e gonderilir. Bu donusumun nedeni json formatinda gonderecek olmamiz.
          })
 
     response['apps'] = app_list
     response['sucess'] = True
-
+    # veriler frontende gonderilir.
     return response
 
 
 @app.post("/get_screenshots_by_app_id")
 async def get_screenshots_by_app_id(app: AppID, db: Session = Depends(get_db)):
-    screenshots = db.query(models.Screenshot).filter(models.Screenshot.app_id == app.appid)
+    screenshots = db.query(models.Screenshot).filter(models.Screenshot.app_id == app.appid) # frontende gelen appid ye gore screenshots db sinde veriler getirilir.
     response = {"sucess": False}
     screenshot_list = []
+    # istenilen veriler liste sekline getirilir.
     for screenshot in screenshots:
         screenshot_list.append ({
             "id": screenshot.id,
-            "screenshot": get_response_image("ss/" + screenshot.file_name)
+            "screenshot": get_response_image("./ss/" + screenshot.file_name) # resim dosyalari base64 donusumunden sonra frontend'e gonderilir. Bu donusumun nedeni json formatinda gonderecek olmamiz.
         })
 
     response['screenshots'] = screenshot_list
     response['sucess'] = True
-
+    # veriler frontende gonderilir.
     return response
-
 
 """
 #This endpoint will add the sample data to the database if there is not the same data in the database.
@@ -144,7 +154,7 @@ def csv_to_database(db: Session = Depends(get_db)):
     }
     import csv
     from datetime import datetime
-    with open("sample_apps.csv", 'r') as file:
+    with open("../sample_apps.csv", 'r') as file:
         csvreader = csv.reader(file)
         header = next(csvreader)
         for row in csvreader:
@@ -157,7 +167,7 @@ def csv_to_database(db: Session = Depends(get_db)):
             db.add(app)
             db.commit()
     
-    with open("sample_screeshots.csv", 'r') as file:
+    with open("../sample_screeshots.csv", 'r') as file:
         csvreader = csv.reader(file)
         header = next(csvreader)
         for row in csvreader:
